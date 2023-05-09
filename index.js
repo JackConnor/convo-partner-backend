@@ -15,21 +15,53 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 
-
 app.get('/', function (req, res) {
   res.json({res: 'Hello World!'})
 })
 
 app.post('/prompt', jsonParser, async (req, res) => {
-  const completion = await openai.createCompletion({
-    // "model": "text-davinci-003",
-    "model": "gpt-3.5-turbo",
-    "prompt": req.body.prompt,
-    "max_tokens": 500,
-    "temperature": 0.7
-  });
-  console.log(completion.data.choices[0].text);
-  res.json({ data: completion.data.choices[0] })
+  try {
+    const completion = await openai.createChatCompletion({
+      // "model": "text-davinci-003",
+      "model": "gpt-3.5-turbo",
+      // "prompt": req.body.prompt,
+      "messages": [
+        { role: 'user', content: req.body.prompt}
+      ],
+      "max_tokens": 300,
+      "temperature": 0.7
+    });
+    const completionTranslation = await openai.createChatCompletion({
+      "model": "gpt-3.5-turbo",
+      "messages": [
+        { role: 'user', content: `Please translate the following to spanish text to English: ${completion.data.choices[0].message.content}` }
+      ],
+      "max_tokens": 200,
+      "temperature": 0.7
+    });
+    const completionCorrection = await openai.createChatCompletion({
+      "model": "gpt-3.5-turbo",
+      "messages": [
+        { role: 'user', content: `Please tell me one single grammatical corrections needed in this spanish text and quickly explain why it's grammatically wrong, in 30 words or less, and in the voice of a funny nice school teacher: ${req.body.originalText}` }
+      ],
+      "max_tokens": 200,
+      "temperature": 0.7
+    });
+    // res.json({ data: completion })
+    res.json({
+      data: completion.data.choices[0].message.content,
+      translation: completionTranslation.data.choices[0].message.content,
+      correction: completionCorrection.data.choices[0].message.content,
+    })
+  } catch(err) {
+    console.log(err)
+    console.log(err.response)
+    console.log('err.data')
+    console.log('err.data')
+    console.log('err.data')
+    // res.json(err)
+    throw new Error(err)
+  }
 })
 
 app.listen(3000, function () {
